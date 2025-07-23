@@ -3,6 +3,7 @@
 #include "SpartaGameInstance.h"
 #include "SpartaPlayerController.h"
 #include "SpawnVolume.h"
+#include "../../../../../Games/UE_5.6/Engine/Intermediate/Build/Win64/x64/UnrealEditor/Development/ChaosVehiclesEngine/Definitions.ChaosVehiclesEngine.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/TextBlock.h"
 #include "Kismet/GameplayStatics.h"
@@ -12,24 +13,36 @@ ASpartaGameState::ASpartaGameState()
 	Score = 0;
 	SpawnedCoinCount = 0;
 	CollectedCoinCount = 0;
-	LevelDuration = 30.0f;
+	WaveDuration = 30.0f;
 	CurrentLevelIndex = 0;
 	MaxLevels = 3;
+	MaxWave = 3;
+	LevelMapNames = { "Level1", "Level2", "Level3"};
 }
 
 void ASpartaGameState::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red,
+			FString::Printf(TEXT("LevelMapNames.Num(): %d | CurrentLevelIndex: %d"),
+				LevelMapNames.Num(), CurrentLevelIndex));
+	}
 	
 	StartLevel();
 
-	GetWorldTimerManager().SetTimer(
-		HEDUpdateTimerHandle,
-		this,
-		&ASpartaGameState::UpdateHUD,
-		0.1f,
-		true
-	);
+	if (!GetWorldTimerManager().IsTimerActive(HUDUpdateTimerHandle))
+	{
+		GetWorldTimerManager().SetTimer(
+			HUDUpdateTimerHandle,
+			this,
+			&ASpartaGameState::UpdateHUD,
+			0.1f,
+			true
+		);		
+	}
 }
 
 int32 ASpartaGameState::GetScore() const
@@ -67,15 +80,27 @@ void ASpartaGameState::StartLevel()
 			CurrentLevelIndex = SpartaGameInstance->CurrentLevelIndex;
 		}
 	}
-	
+
+	CurrentWaveIndex = 0;
+	StartWave();
+}
+
+void ASpartaGameState::StartWave()
+{
+	CurrentWaveIndex++;
 	SpawnedCoinCount = 0;
 	CollectedCoinCount = 0;
 
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Green, FString::Printf(TEXT("Wave %d Start!"), CurrentWaveIndex));	
+	}
+	
 	TArray<AActor*> FoundVolumes;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), ASpawnVolume::StaticClass(), FoundVolumes);
 
-	const int32 ItemToSpawn = 40;
-	
+	int32 ItemToSpawn = 20 + (CurrentWaveIndex * 10);
+
 	if (FoundVolumes.Num() > 0)
 	{
 		ASpawnVolume* SpawnVolume = Cast<ASpawnVolume>(FoundVolumes[0]);
@@ -93,40 +118,54 @@ void ASpartaGameState::StartLevel()
 	}
 
 	GetWorldTimerManager().SetTimer(
-		LevelTimerHandle,
+		WaveTimerHandle,
 		this,
-		&ASpartaGameState::OnLevelTimeUP,
-		LevelDuration,
+		&ASpartaGameState::OnWaveTimeUp,
+		WaveDuration,
 		false
 	);
-
-	// UpdateHUD();
 }
 
-void ASpartaGameState::OnLevelTimeUP()
+void ASpartaGameState::OnLevelTimeUp()
 {
 	EndLevel();
 }
 
-void ASpartaGameState::OnCoinCollected()
+void ASpartaGameState::OnWaveTimeUp()
 {
-	CollectedCoinCount++;
-	
-	UE_LOG(LogTemp, Warning, TEXT("Coin Collected: %d / %d"),
-		CollectedCoinCount,
-		SpawnedCoinCount
-	);
-
-	if (SpawnedCoinCount > 0 && CollectedCoinCount >= SpawnedCoinCount)
+	if (CurrentWaveIndex < MaxWave)
+	{
+		StartWave();
+	}
+	else
 	{
 		EndLevel();
 	}
 }
 
+void ASpartaGameState::OnCoinCollected()
+{
+	CollectedCoinCount++;
+
+	if (SpawnedCoinCount > 0 && CollectedCoinCount >= SpawnedCoinCount)
+	{
+		GetWorldTimerManager().ClearTimer(WaveTimerHandle);
+
+		if (CurrentWaveIndex < MaxWave)
+		{
+			StartWave();
+		}
+		else
+		{
+			EndLevel();	
+		}
+	}
+}
+
 void ASpartaGameState::EndLevel()
 {
-	GetWorldTimerManager().ClearTimer(LevelTimerHandle);
-
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+	
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
@@ -152,6 +191,8 @@ void ASpartaGameState::EndLevel()
 			OnGameOver();
 		}
 	}
+	
+	UE_LOG(LogTemp, Warning, TEXT("EndLevel() ½ÇÇàµÊ. ÇöÀç ÀÎµ¦½º: %d"), CurrentLevelIndex);
 }
 
 void ASpartaGameState::OnGameOver()
@@ -168,34 +209,45 @@ void ASpartaGameState::OnGameOver()
 
 void ASpartaGameState::UpdateHUD()
 {
+	UWorld* World = GetWorld();
+	if (!IsValid(World) || World->IsPendingKillEnabled() || World->bIsTearingDown)
+	{
+		GetWorldTimerManager().ClearTimer(HUDUpdateTimerHandle);
+		return;
+	}
+	
 	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
 	{
 		if (ASpartaPlayerController* SpartaPlayerController = Cast<ASpartaPlayerController>(PlayerController))
 		{
-			if (UUserWidget* HUDWidget = SpartaPlayerController->GetHUDWiget())
+			UUserWidget* HUDWidget = SpartaPlayerController->GetHUDWiget();
+			if (!IsValid(HUDWidget) || HUDWidget->IsPendingKillEnabled() || !HUDWidget->IsInViewport())
 			{
-				if (UTextBlock* TimeText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Time"))))
-				{
-					float RemainingTime = GetWorldTimerManager().GetTimerRemaining(LevelTimerHandle);
-					TimeText->SetText(FText::FromString(FString::Printf(TEXT("Time: %.1f"), RemainingTime)));
-				}
+				GetWorldTimerManager().ClearTimer(HUDUpdateTimerHandle);
+				return;
+			}
+			UTextBlock* TimeText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Time")));
+			if (IsValid(TimeText))
+			{
+				float RemainingTime = GetWorldTimerManager().GetTimerRemaining(WaveTimerHandle);
+				TimeText->SetText(FText::FromString(FString::Printf(TEXT("Time: %.1f"), RemainingTime)));
+			}
 
-				if (UTextBlock* ScoreText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Score"))))
+			if (UTextBlock* ScoreText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Score"))))
+			{
+				if (UGameInstance* GameInstance = GetGameInstance())
 				{
-					if (UGameInstance* GameInstance = GetGameInstance())
+					USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
+					if (SpartaGameInstance)
 					{
-						USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
-						if (SpartaGameInstance)
-						{
-							ScoreText->SetText(FText::FromString(FString::Printf(TEXT("Score: %d"), SpartaGameInstance->TotalScore)));
-						}
+						ScoreText->SetText(FText::FromString(FString::Printf(TEXT("Score: %d"), SpartaGameInstance->TotalScore)));
 					}
 				}
+			}
 
-				if (UTextBlock* LevelIndexText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Level"))))
-				{
-					LevelIndexText->SetText(FText::FromString(FString::Printf(TEXT("Level: %d"), CurrentLevelIndex + 1)));
-				}
+			if (UTextBlock* LevelIndexText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Level"))))
+			{
+				LevelIndexText->SetText(FText::FromString(FString::Printf(TEXT("Level: %d"), CurrentLevelIndex + 1)));
 			}
 		}
 	}

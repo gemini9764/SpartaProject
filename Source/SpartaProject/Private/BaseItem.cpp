@@ -47,15 +47,15 @@ void ABaseItem::OnItemEndOverlap(
 
 void ABaseItem::Activateitem(AActor* Activator)
 {
-	UParticleSystemComponent* Particle = nullptr;
-	
 	if (PickupParticle)
 	{
-		Particle = UGameplayStatics::SpawnEmitterAtLocation(
-			GetWorld(),
+		UParticleSystemComponent* Particle = UGameplayStatics::SpawnEmitterAttached(
 			PickupParticle,
-			GetActorLocation(),
-			GetActorRotation(),
+			RootComponent,
+			NAME_None,
+			FVector::ZeroVector,
+			FRotator::ZeroRotator,
+			EAttachLocation::KeepRelativeOffset,
 			true
 		);
 	}
@@ -68,21 +68,6 @@ void ABaseItem::Activateitem(AActor* Activator)
 			GetActorLocation()
 		);
 	}
-
-	if (Particle)
-	{
-		FTimerHandle DestroyParticleTimerHandle;
-
-		GetWorld()->GetTimerManager().SetTimer(
-			DestroyParticleTimerHandle,
-			[Particle]()
-			{
-				Particle->DestroyComponent();
-			},
-			2.0f,
-			false
-		);
-	}	
 }
 
 FName ABaseItem::GetItemType() const

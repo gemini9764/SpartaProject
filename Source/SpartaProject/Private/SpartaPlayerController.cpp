@@ -51,8 +51,14 @@ void ASpartaPlayerController::ShowMainMenu(bool bIsRestart)
 {
 	if (HUDWidgetInstance)
 	{
+		ASpartaGameState* SpartaGameState = GetWorld()->GetGameState<ASpartaGameState>();
 		HUDWidgetInstance->RemoveFromParent();
 		HUDWidgetInstance = nullptr;
+
+		if (SpartaGameState)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(SpartaGameState->HUDUpdateTimerHandle);
+		}
 	}
 
 	if (MainMenuWidgetInstance)
@@ -109,8 +115,14 @@ void ASpartaPlayerController::ShowGameHUD()
 {
 	if (HUDWidgetInstance)
 	{
+		ASpartaGameState* SpartaGameState = GetWorld()->GetGameState<ASpartaGameState>();
 		HUDWidgetInstance->RemoveFromParent();
 		HUDWidgetInstance = nullptr;
+		
+		if (SpartaGameState)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(SpartaGameState->HUDUpdateTimerHandle);
+		}
 	}
 
 	if (MainMenuWidgetInstance)
