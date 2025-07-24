@@ -15,7 +15,8 @@ ASpartaPlayerController::ASpartaPlayerController()
 	  HUDWidgetClass(nullptr),
 	  HUDWidgetInstance(nullptr),
 	  MainMenuWidgetClass(nullptr),
-	  MainMenuWidgetInstance(nullptr)
+	  MainMenuWidgetInstance(nullptr),
+	  bIsGameOver(false)
 {
 }
 
@@ -49,6 +50,8 @@ UUserWidget* ASpartaPlayerController::GetHUDWiget() const
 
 void ASpartaPlayerController::ShowMainMenu(bool bIsRestart)
 {
+	bIsGameOver = bIsRestart;
+
 	if (HUDWidgetInstance)
 	{
 		ASpartaGameState* SpartaGameState = GetWorld()->GetGameState<ASpartaGameState>();
@@ -108,6 +111,18 @@ void ASpartaPlayerController::ShowMainMenu(bool bIsRestart)
 				}
 			}
 		}
+
+		if (UTextBlock* BackButtonText = Cast<UTextBlock>(MainMenuWidgetInstance->GetWidgetFromName(TEXT("BackToMenuButtonText"))))
+		{
+			if (bIsRestart)
+			{
+				BackButtonText->SetText(FText::FromString(TEXT("Main Menu")));
+			}
+			else
+			{
+				BackButtonText->SetText(FText::FromString(TEXT("Quit")));
+			}
+		}
 	}
 }
 
@@ -155,4 +170,14 @@ void ASpartaPlayerController::StartGame()
 
 	UGameplayStatics::OpenLevel(GetWorld(), FName("BasicLevel"));
 	SetPause(false);
+}
+
+void ASpartaPlayerController::BackToMainMenu()
+{
+	UGameplayStatics::OpenLevel(GetWorld(), FName("MenuLevel"));
+}
+
+void ASpartaPlayerController::QuitGame()
+{
+	FGenericPlatformMisc::RequestExit(false);
 }
