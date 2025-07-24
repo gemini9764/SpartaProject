@@ -49,15 +49,26 @@ void ABaseItem::Activateitem(AActor* Activator)
 {
 	if (PickupParticle)
 	{
-		UParticleSystemComponent* Particle = UGameplayStatics::SpawnEmitterAttached(
+		UParticleSystemComponent* ParticleComponent = UGameplayStatics::SpawnEmitterAtLocation(
+			GetWorld(),
 			PickupParticle,
-			RootComponent,
-			NAME_None,
-			FVector::ZeroVector,
-			FRotator::ZeroRotator,
-			EAttachLocation::KeepRelativeOffset,
+			GetActorLocation(),
+			GetActorRotation(),
 			true
 		);
+
+		if (ParticleComponent)
+		{
+			FTimerHandle ParticleTimerHandle;
+			TWeakObjectPtr<UParticleSystemComponent> WeakParticleComponent = ParticleComponent;
+			GetWorld()->GetTimerManager().SetTimer(ParticleTimerHandle, [WeakParticleComponent]()
+			{
+				if (WeakParticleComponent.IsValid())
+				{
+					WeakParticleComponent->DestroyComponent();
+				}
+			}, 2.0f, false);
+		}
 	}
 
 	if (PickupSound)

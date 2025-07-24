@@ -113,41 +113,36 @@ void ASpartaPlayerController::ShowMainMenu(bool bIsRestart)
 
 void ASpartaPlayerController::ShowGameHUD()
 {
-	if (HUDWidgetInstance)
+	UE_LOG(LogTemp, Warning, TEXT("ShowGameHUD Called"));
+	if (IsValid(MainMenuWidgetInstance))
 	{
-		ASpartaGameState* SpartaGameState = GetWorld()->GetGameState<ASpartaGameState>();
-		HUDWidgetInstance->RemoveFromParent();
-		HUDWidgetInstance = nullptr;
-		
-		if (SpartaGameState)
-		{
-			GetWorld()->GetTimerManager().ClearTimer(SpartaGameState->HUDUpdateTimerHandle);
-		}
-	}
-
-	if (MainMenuWidgetInstance)
-	{
+		UE_LOG(LogTemp, Warning, TEXT("Removing MainMenuWidgetInstance"));
 		MainMenuWidgetInstance->RemoveFromParent();
 		MainMenuWidgetInstance = nullptr;
 	}
 
-	if (HUDWidgetClass)
+	if (!IsValid(HUDWidgetInstance))
 	{
-		HUDWidgetInstance = CreateWidget<UUserWidget>(this, HUDWidgetClass);
-		if (HUDWidgetInstance)
+		UE_LOG(LogTemp, Warning, TEXT("HUDWidgetInstance is not valid. Creating new one."));
+		if (HUDWidgetClass)
 		{
-			HUDWidgetInstance->AddToViewport();
-
-			bShowMouseCursor = false;
-			SetInputMode(FInputModeGameOnly());
-		}
-
-		ASpartaGameState* SpartaGameState = GetWorld() ? GetWorld()->GetGameState<ASpartaGameState>() : nullptr;
-		if (SpartaGameState)
-		{
-			SpartaGameState->UpdateHUD();
+			HUDWidgetInstance = CreateWidget<UUserWidget>(this, HUDWidgetClass);
 		}
 	}
+
+	if (IsValid(HUDWidgetInstance) && !HUDWidgetInstance->IsInViewport())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Adding HUDWidgetInstance to viewport."));
+		HUDWidgetInstance->AddToViewport();
+		bShowMouseCursor = false;
+		SetInputMode(FInputModeGameOnly());
+	}
+}
+
+void ASpartaPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UE_LOG(LogTemp, Warning, TEXT("PlayerController EndPlay Called"));
+	Super::EndPlay(EndPlayReason);
 }
 
 void ASpartaPlayerController::StartGame()

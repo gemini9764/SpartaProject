@@ -23,13 +23,6 @@ ASpartaGameState::ASpartaGameState()
 void ASpartaGameState::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (GEngine)
-	{
-		GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Red,
-			FString::Printf(TEXT("LevelMapNames.Num(): %d | CurrentLevelIndex: %d"),
-				LevelMapNames.Num(), CurrentLevelIndex));
-	}
 	
 	StartLevel();
 
@@ -42,23 +35,6 @@ void ASpartaGameState::BeginPlay()
 			0.1f,
 			true
 		);		
-	}
-}
-
-int32 ASpartaGameState::GetScore() const
-{
-	return Score;
-}
-
-void ASpartaGameState::AddScore(int32 Amount)
-{
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
-		if (SpartaGameInstance)
-		{
-			SpartaGameInstance->AddToScore(Amount);
-		}
 	}
 }
 
@@ -126,9 +102,21 @@ void ASpartaGameState::StartWave()
 	);
 }
 
-void ASpartaGameState::OnLevelTimeUp()
+int32 ASpartaGameState::GetScore() const
 {
-	EndLevel();
+	return Score;
+}
+
+void ASpartaGameState::AddScore(int32 Amount)
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
+		if (SpartaGameInstance)
+		{
+			SpartaGameInstance->AddToScore(Amount);
+		}
+	}
 }
 
 void ASpartaGameState::OnWaveTimeUp()
@@ -141,6 +129,11 @@ void ASpartaGameState::OnWaveTimeUp()
 	{
 		EndLevel();
 	}
+}
+
+void ASpartaGameState::OnLevelTimeUp()
+{
+	EndLevel();
 }
 
 void ASpartaGameState::OnCoinCollected()
@@ -164,7 +157,7 @@ void ASpartaGameState::OnCoinCollected()
 
 void ASpartaGameState::EndLevel()
 {
-	GetWorldTimerManager().ClearAllTimersForObject(this);
+	GetWorldTimerManager().ClearTimer(WaveTimerHandle);
 	
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
@@ -192,7 +185,7 @@ void ASpartaGameState::EndLevel()
 		}
 	}
 	
-	UE_LOG(LogTemp, Warning, TEXT("EndLevel() ½ÇÇàµÊ. ÇöÀç ÀÎµ¦½º: %d"), CurrentLevelIndex);
+	UE_LOG(LogTemp, Warning, TEXT("EndLevel() ï¿½ï¿½ï¿½ï¿½ï¿½. ï¿½ï¿½ï¿½ï¿½ ï¿½Îµï¿½ï¿½ï¿½: %d"), CurrentLevelIndex);
 }
 
 void ASpartaGameState::OnGameOver()
@@ -209,46 +202,44 @@ void ASpartaGameState::OnGameOver()
 
 void ASpartaGameState::UpdateHUD()
 {
-	UWorld* World = GetWorld();
-	if (!IsValid(World) || World->IsPendingKillEnabled() || World->bIsTearingDown)
-	{
-		GetWorldTimerManager().ClearTimer(HUDUpdateTimerHandle);
-		return;
-	}
-	
 	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
 	{
 		if (ASpartaPlayerController* SpartaPlayerController = Cast<ASpartaPlayerController>(PlayerController))
 		{
 			UUserWidget* HUDWidget = SpartaPlayerController->GetHUDWiget();
-			if (!IsValid(HUDWidget) || HUDWidget->IsPendingKillEnabled() || !HUDWidget->IsInViewport())
+			if (IsValid(HUDWidget) && HUDWidget->IsInViewport())
 			{
-				GetWorldTimerManager().ClearTimer(HUDUpdateTimerHandle);
-				return;
-			}
-			UTextBlock* TimeText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Time")));
-			if (IsValid(TimeText))
-			{
-				float RemainingTime = GetWorldTimerManager().GetTimerRemaining(WaveTimerHandle);
-				TimeText->SetText(FText::FromString(FString::Printf(TEXT("Time: %.1f"), RemainingTime)));
-			}
-
-			if (UTextBlock* ScoreText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Score"))))
-			{
-				if (UGameInstance* GameInstance = GetGameInstance())
+				UTextBlock* TimeText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Time")));
+				if (IsValid(TimeText))
 				{
-					USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
-					if (SpartaGameInstance)
+					float RemainingTime = GetWorldTimerManager().GetTimerRemaining(WaveTimerHandle);
+					TimeText->SetText(FText::FromString(FString::Printf(TEXT("Time: %.1f"), RemainingTime)));
+				}
+
+				if (UTextBlock* ScoreText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Score"))))
+				{
+					if (UGameInstance* GameInstance = GetGameInstance())
 					{
-						ScoreText->SetText(FText::FromString(FString::Printf(TEXT("Score: %d"), SpartaGameInstance->TotalScore)));
+						USpartaGameInstance* SpartaGameInstance = Cast<USpartaGameInstance>(GameInstance);
+						if (SpartaGameInstance)
+						{
+							ScoreText->SetText(FText::FromString(FString::Printf(TEXT("Score: %d"), SpartaGameInstance->TotalScore)));
+						}
 					}
 				}
-			}
 
-			if (UTextBlock* LevelIndexText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Level"))))
-			{
-				LevelIndexText->SetText(FText::FromString(FString::Printf(TEXT("Level: %d"), CurrentLevelIndex + 1)));
+				if (UTextBlock* LevelIndexText = Cast<UTextBlock>(HUDWidget->GetWidgetFromName(TEXT("Level"))))
+				{
+					LevelIndexText->SetText(FText::FromString(FString::Printf(TEXT("Level: %d"), CurrentLevelIndex + 1)));
+				}
 			}
 		}
 	}
+}
+
+void ASpartaGameState::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	GetWorldTimerManager().ClearTimer(HUDUpdateTimerHandle);
+	GetWorldTimerManager().ClearTimer(WaveTimerHandle);
 }

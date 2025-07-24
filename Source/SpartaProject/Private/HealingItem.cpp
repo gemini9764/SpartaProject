@@ -1,5 +1,6 @@
 #include "HealingItem.h"
 #include "SpartaCharacter.h"
+#include "Components/SphereComponent.h"
 
 AHealingItem::AHealingItem()
 {
@@ -18,6 +19,6 @@ void AHealingItem::Activateitem(AActor* Activator)
 			PlayerCharacter->AddHealth(HealAmount);
 		}
 
-		DestroyedItem();
+				DestroyedItem();
 	}
 }

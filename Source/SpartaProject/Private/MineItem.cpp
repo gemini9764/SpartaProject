@@ -36,16 +36,14 @@ void AMineItem::Activateitem(AActor* Activator)
 
 void AMineItem::Explode()
 {
-	UParticleSystemComponent* Particle = nullptr;
-	
 	if (ExplosionParticle)
 	{
-		Particle = UGameplayStatics::SpawnEmitterAtLocation(
+		UGameplayStatics::SpawnEmitterAtLocation(
 			GetWorld(),
 			ExplosionParticle,
 			GetActorLocation(),
 			GetActorRotation(),
-			false
+			true
 		);
 	}
 
@@ -76,19 +74,10 @@ void AMineItem::Explode()
 	}
 	
 	DestroyedItem();
+}
 
-	if (Particle)
-	{
-		FTimerHandle DestroyParticleTimerHandle;
-
-		GetWorld()->GetTimerManager().SetTimer(
-			DestroyParticleTimerHandle,
-			[Particle]()
-			{
-				Particle->DestroyComponent();
-			},
-			2.0f,
-			false
-		);
-	}	
+void AMineItem::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+	GetWorld()->GetTimerManager().ClearTimer(ExplosionTimer);
 }

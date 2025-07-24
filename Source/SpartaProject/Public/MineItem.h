@@ -27,7 +27,9 @@ public:
 	int32 ExplosionDamage;
 
 	bool bHasExploded;
-	FTimerHandle ExplosionTimer;
+		FTimerHandle ExplosionTimer;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	virtual void Activateitem(AActor* Activator) override;
 
